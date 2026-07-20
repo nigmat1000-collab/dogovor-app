@@ -3,7 +3,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, Handshake, Send, Mic, MicOff, Sparkles, ChevronRight, FileText, CheckCircle2, ImagePlus, X, Volume2, VolumeX, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 interface ChatMessage {
@@ -12,7 +11,6 @@ interface ChatMessage {
   text: string;
   options?: { id: string; label: string; action: string }[];
   imageUrl?: string;
-  contractText?: string;
 }
 
 interface ContractDraft {
@@ -24,103 +22,35 @@ interface ContractDraft {
   createdAt: string;
 }
 
-function ChatBubble({ message, onSpeak, isSpeaking, ttsEnabled }: {
-  message: ChatMessage;
-  onSpeak: (messageId: string, text: string) => void;
-  isSpeaking: boolean;
-  ttsEnabled: boolean;
-}) {
-  const isUser = message.role === "user";
-  return (
-    <div className="flex gap-2 group">
-      <div className={`flex gap-3 ${isUser ? "flex-row-reverse ml-auto" : ""} animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-[80%]`}>
-        {!isUser && (
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Bot className="size-4 text-primary" />
-          </div>
-        )}
-        <div className={`space-y-2 ${isUser ? "items-end" : ""}`}>
-          <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"}`}>
-            <div className="whitespace-pre-wrap [&_strong]:font-semibold">{message.text}</div>
-            {message.imageUrl && (
-              <div className="mt-2 overflow-hidden rounded-lg border bg-background">
-                <img src={message.imageUrl} alt="" className="max-h-48 w-full object-contain" />
-              </div>
-            )}
-          </div>
-          {message.options && message.options.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {message.options.map((opt) => (
-                <Button key={opt.id} size="sm" variant={opt.action === "confirm" || opt.action === "view" ? "default" : "outline"} className="gap-1.5" data-action={opt.id}>
-                  {opt.action === "confirm" && <CheckCircle2 className="size-3.5" />}
-                  {opt.action === "view" && <FileText className="size-3.5" />}
-                  {opt.action === "sign" && <ChevronRight className="size-3.5" />}
-                  {opt.action === "modify" && <FileText className="size-3.5" />}
-                  {opt.action === "restart" && <Sparkles className="size-3.5" />}
-                  {opt.label}
-                </Button>
-              ))}
-            </div>
-          )}
-          {!isUser && ttsEnabled && message.text.length > 0 && (
-            <div className="flex justify-start pt-1">
-              <button type="button" onClick={(e) => { e.stopPropagation(); onSpeak(message.id, message.text); }}
-                className="flex size-7 items-center justify-center rounded-full text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors"
-                title={isSpeaking ? "Остановить" : "Озвучить"}>
-                {isSpeaking ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-        <Bot className="size-4 text-primary" />
-      </div>
-      <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-muted px-4 py-3">
-        <span className="size-1.5 rounded-full bg-muted-foreground/40 pulse-dot" />
-        <span className="size-1.5 rounded-full bg-muted-foreground/40 pulse-dot" style={{ animationDelay: "0.3s" }} />
-        <span className="size-1.5 rounded-full bg-muted-foreground/40 pulse-dot" style={{ animationDelay: "0.6s" }} />
-      </div>
-    </div>
-  );
-}
-
 function WelcomeScreen({ onExampleClick }: { onExampleClick: (text: string) => void }) {
   const router = useRouter();
   const examples = ["Хочу сдать квартиру другу на год", "Продаю свой автомобиль", "Нужна расписка, даю деньги в долг", "Хочу подарить квартиру сыну"];
   return (
-    <div className="flex flex-col items-center justify-center gap-6 py-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10">
-        <Handshake className="size-8 text-primary" />
+    <div className="flex flex-col items-center justify-center gap-3 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10">
+        <Handshake className="size-6 text-primary" />
       </div>
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">Ваш помощник</h1>
-        <p className="text-sm text-muted-foreground max-w-sm">Опишите вашу ситуацию — я подберу подходящий договор, задам уточняющие вопросы и подготовлю готовый документ.</p>
+      <div className="text-center space-y-1">
+        <h1 className="text-xl font-bold tracking-tight">Ваш помощник</h1>
+        <p className="text-xs text-muted-foreground max-w-sm">Опишите вашу ситуацию — я подберу подходящий договор, задам уточняющие вопросы и подготовлю готовый документ.</p>
       </div>
-      <div className="w-full max-w-md grid grid-cols-2 gap-3">
+      <div className="w-full max-w-md grid grid-cols-2 gap-2">
         <button type="button" onClick={() => router.push("/my-documents")}
-          className="flex flex-col items-center gap-2 rounded-xl border border-border/50 bg-card/50 p-4 text-sm font-medium hover:bg-accent hover:text-foreground transition-colors">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10"><FileText className="size-5 text-primary" /></div>
+          className="flex flex-col items-center gap-1 rounded-xl border border-border/50 bg-card/50 p-3 text-xs font-medium hover:bg-accent hover:text-foreground transition-colors">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10"><FileText className="size-4 text-primary" /></div>
           <span>Мои документы</span>
         </button>
         <button type="button" onClick={() => router.push("/")}
-          className="flex flex-col items-center gap-2 rounded-xl border border-border/50 bg-card/50 p-4 text-sm font-medium hover:bg-accent hover:text-foreground transition-colors">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10"><Plus className="size-5 text-primary" /></div>
+          className="flex flex-col items-center gap-1 rounded-xl border border-border/50 bg-card/50 p-3 text-xs font-medium hover:bg-accent hover:text-foreground transition-colors">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10"><Plus className="size-4 text-primary" /></div>
           <span>Новый договор</span>
         </button>
       </div>
-      <div className="w-full max-w-md space-y-2">
-        <p className="text-xs text-muted-foreground text-center">Например:</p>
+      <div className="w-full max-w-md space-y-1">
+        <p className="text-[10px] text-muted-foreground text-center">Например:</p>
         {examples.map((ex) => (
           <button key={ex} type="button" onClick={() => onExampleClick(ex)}
-            className="w-full text-left rounded-lg border border-border/50 bg-card/50 px-4 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            className="w-full text-left rounded-lg border border-border/50 bg-card/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
             {ex}
           </button>
         ))}
@@ -135,21 +65,10 @@ export default function ChatPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ContractDraft | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
-
-  useEffect(() => { setHydrated(true); }, []);
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -181,16 +100,13 @@ export default function ChatPage() {
     setIsProcessing(true);
     setInputValue("");
     setPendingImage(null);
-
     const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", text: text.trim(), imageUrl };
     addMessage(userMsg);
-
     setTimeout(() => {
-      const responseText = "Я проанализировал вашу ситуацию. Это похоже на **Договор аренды**. Давайте заполним обязательные условия.\n\nКакая будет сумма аренды в месяц?";
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        text: responseText,
+        text: "Я проанализировал вашу ситуацию. Это похоже на **Договор аренды**. Давайте заполним обязательные условия.\n\nКакая будет сумма аренды в месяц?",
         options: [
           { id: "opt-1", label: "50000 ₽", action: "confirm" },
           { id: "opt-2", label: "30000 ₽", action: "confirm" },
@@ -227,34 +143,24 @@ export default function ChatPage() {
     if (!msg?.options) return;
     const action = msg.options.find((o) => o.id === actionId);
     if (!action) return;
-
     if (action.action === "view" || action.action === "sign") {
       const existing = localStorage.getItem("contract_drafts");
       const drafts: ContractDraft[] = existing ? JSON.parse(existing) : [];
-      if (drafts.length > 0) {
-        window.location.href = `/my-documents/${drafts[drafts.length - 1].id}`;
-      }
+      if (drafts.length > 0) window.location.href = `/my-documents/${drafts[drafts.length - 1].id}`;
       return;
     }
-
     if (action.action === "confirm") {
       const newDraft: ContractDraft = {
-        id: Date.now().toString(),
-        contractId: "rent",
-        contractTitle: "Договор аренды",
-        fields: { rentAmount: action.label },
-        status: "draft",
-        createdAt: new Date().toISOString(),
+        id: Date.now().toString(), contractId: "rent", contractTitle: "Договор аренды",
+        fields: { rentAmount: action.label }, status: "draft", createdAt: new Date().toISOString(),
       };
       const existing = localStorage.getItem("contract_drafts");
       const drafts: ContractDraft[] = existing ? JSON.parse(existing) : [];
       drafts.push(newDraft);
       localStorage.setItem("contract_drafts", JSON.stringify(drafts));
       setDraft(newDraft);
-
       const doneMsg: ChatMessage = {
-        id: (Date.now() + 2).toString(),
-        role: "assistant",
+        id: (Date.now() + 2).toString(), role: "assistant",
         text: "✅ **Договор аренды** сформирован!\n\nВы можете посмотреть полный текст, отредактировать или подписать.",
         options: [
           { id: "view-doc", label: "Посмотреть договор", action: "view" },
@@ -284,68 +190,85 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4">
-        <div className="mx-auto max-w-2xl py-4 space-y-4">
+        <div className="mx-auto max-w-2xl py-2 space-y-3">
           {showWelcome ? (
             <WelcomeScreen onExampleClick={(text) => sendMessage(text)} />
           ) : (
             <>
               {messages.map((msg) => (
-                <ChatBubble key={msg.id} message={msg}
-                  onSpeak={(id, text) => {}}
-                  isSpeaking={speakingMessageId === msg.id}
-                  ttsEnabled={ttsEnabled} />
+                <div key={msg.id} className="flex gap-2 group">
+                  <div className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse ml-auto" : ""} animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-[80%]`}>
+                    {msg.role !== "user" && (
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Bot className="size-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div className={`rounded-2xl px-3 py-2 text-sm leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted rounded-tl-sm"}`}>
+                      <div className="whitespace-pre-wrap [&_strong]:font-semibold text-[13px]">{msg.text}</div>
+                      {msg.options && msg.options.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2">
+                          {msg.options.map((opt) => (
+                            <Button key={opt.id} size="sm" variant={opt.action === "confirm" || opt.action === "view" ? "default" : "outline"} className="gap-1 text-xs h-7 px-2.5" data-action={opt.id}>
+                              {opt.action === "confirm" && <CheckCircle2 className="size-3" />}
+                              {opt.action === "view" && <FileText className="size-3" />}
+                              {opt.label}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
-              {isProcessing && <TypingIndicator />}
+              {isProcessing && (
+                <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Bot className="size-3.5 text-primary" />
+                  </div>
+                  <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-muted px-3 py-2">
+                    <span className="size-1.5 rounded-full bg-muted-foreground/40 pulse-dot" />
+                    <span className="size-1.5 rounded-full bg-muted-foreground/40 pulse-dot" style={{ animationDelay: "0.3s" }} />
+                    <span className="size-1.5 rounded-full bg-muted-foreground/40 pulse-dot" style={{ animationDelay: "0.6s" }} />
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </>
           )}
         </div>
       </div>
       <div className="border-t bg-background/80 backdrop-blur-md">
-        <div className="mx-auto max-w-2xl px-4 py-3">
+        <div className="mx-auto max-w-2xl px-4 py-2">
           {draft && (
-            <div className="mb-3 flex items-center gap-3 rounded-lg border bg-card p-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                <FileText className="size-4 text-primary" />
+            <div className="mb-2 flex items-center gap-2 rounded-lg border bg-card p-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                <FileText className="size-3.5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{draft.contractTitle}</p>
-                <p className="text-xs text-muted-foreground">Договор сохранён</p>
+                <p className="text-xs font-medium">{draft.contractTitle}</p>
+                <p className="text-[10px] text-muted-foreground">Договор сохранён</p>
               </div>
-              <Button size="sm" onClick={() => { window.location.href = `/my-documents/${draft.id}`; }}>
-                <ChevronRight className="mr-1 size-3.5" /> Посмотреть
+              <Button size="sm" className="h-7 text-xs" onClick={() => { window.location.href = `/my-documents/${draft.id}`; }}>
+                <ChevronRight className="mr-1 size-3" /> Посмотреть
               </Button>
             </div>
           )}
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-1.5">
             <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageSelect} />
-            <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isProcessing}
-              className={`shrink-0 ${pendingImage ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}>
+            <Button variant="outline" size="icon" className="size-9 shrink-0" onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
               <ImagePlus className="size-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleVoiceToggle}
-              className={`shrink-0 ${isListening ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}`} disabled={isProcessing}>
+            <Button variant="outline" size="icon" className={`size-9 shrink-0 ${isListening ? "bg-destructive text-destructive-foreground" : ""}`} onClick={handleVoiceToggle} disabled={isProcessing}>
               {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
             </Button>
-            {pendingImage && (
-              <div className="relative shrink-0">
-                <div className="size-10 overflow-hidden rounded-lg border">
-                  <img src={pendingImage} alt="" className="size-full object-cover" />
-                </div>
-                <button type="button" onClick={() => setPendingImage(null)}
-                  className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
-                  <X className="size-3" />
-                </button>
-              </div>
-            )}
             <div className="relative flex-1">
-              <textarea ref={useRef(null)} value={inputValue}
+              <textarea value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown}
                 placeholder={isProcessing ? "Ассистент думает..." : "Опишите вашу ситуацию..."}
                 rows={1} disabled={isProcessing}
-                className="flex w-full resize-none rounded-xl border border-input bg-background px-4 py-2.5 pr-12 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[2.5rem] max-h-32" />
+                className="flex w-full resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[2.5rem] max-h-32" />
             </div>
-            <Button size="icon" onClick={handleSend} disabled={(!inputValue.trim() && !pendingImage) || isProcessing} className="shrink-0">
+            <Button size="icon" className="size-9 shrink-0" onClick={handleSend} disabled={(!inputValue.trim() && !pendingImage) || isProcessing}>
               <Send className="size-4" />
             </Button>
           </div>
