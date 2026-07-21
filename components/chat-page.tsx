@@ -22,6 +22,32 @@ interface ContractDraft {
   createdAt: string;
 }
 
+const contractTypes = [
+  { id: "rent", name: "Аренда", keywords: ["сдать", "снять", "аренда", "квартира", "помещение", "жильё"] },
+  { id: "sale-apartment", name: "Купля-продажа квартиры", keywords: ["продать", "купить", "квартира", "недвижимость"] },
+  { id: "sale-car", name: "Купля-продажа автомобиля", keywords: ["продать", "купить", "машина", "автомобиль", "авто"] },
+  { id: "loan", name: "Займ", keywords: ["долг", "займ", "одолжить", "взаймы", "деньги"] },
+  { id: "services", name: "Услуги", keywords: ["услуга", "услуги", "сделать", "помочь"] },
+  { id: "gift", name: "Дарение", keywords: ["подарить", "дарение", "дарственная"] },
+  { id: "promissory-note", name: "Расписка", keywords: ["расписка", "долг"] },
+  { id: "power-of-attorney", name: "Доверенность", keywords: ["доверенность", "уполномочить"] },
+];
+
+function findContract(text: string) {
+  const lower = text.toLowerCase();
+  let best: { id: string; name: string; score: number } | null = null;
+  for (const ct of contractTypes) {
+    let score = 0;
+    for (const kw of ct.keywords) {
+      if (lower.includes(kw)) score++;
+    }
+    if (score > 0 && (!best || score > best.score)) {
+      best = { id: ct.id, name: ct.name, score };
+    }
+  }
+  return best;
+}
+
 function WelcomeScreen({ onExampleClick }: { onExampleClick: (text: string) => void }) {
   const router = useRouter();
   const examples = ["Хочу сдать квартиру другу на год", "Продаю свой автомобиль", "Нужна расписка, даю деньги в долг", "Хочу подарить квартиру сыну"];
@@ -66,6 +92,9 @@ export default function ChatPage() {
   const [isListening, setIsListening] = useState(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [draft, setDraft] = useState<ContractDraft | null>(null);
+  const [step, setStep] = useState<"idle" | "analyzing" | "questions" | "done">("idle");
+  const [selectedContract, setSelectedContract] = useState<{ id: string; name: string } | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -100,23 +129,48 @@ export default function ChatPage() {
     setIsProcessing(true);
     setInputValue("");
     setPendingImage(null);
+
     const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", text: text.trim(), imageUrl };
     addMessage(userMsg);
+
     setTimeout(() => {
-      const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        text: "Я проанализировал вашу ситуацию. Это похоже на **Договор аренды**. Давайте заполним обязательные условия.\n\nКакая будет сумма аренды в месяц?",
-        options: [
-          { id: "opt-1", label: "50000 ₽", action: "confirm" },
-          { id: "opt-2", label: "30000 ₽", action: "confirm" },
-          { id: "opt-3", label: "Другая сумма", action: "modify" },
-        ],
-      };
-      addMessage(assistantMsg);
+      if (step === "idle") {
+        const match = findContract(text);
+        if (match) {
+          setSelectedContract(match);
+          setStep("questions");
+          const msg: ChatMessage = {
+            id: (Date.now() + 1).toString(), role: "assistant",
+            text: `Я определил: **${match.name}**.\n\nДля заполнения договора мне нужно узнать:\n\n**1. Данные сторон**\nУкажите ФИО и паспортные данные сторон.`,
+            options: [
+              { id: "q-party", label: "Заполнить данные сторон", action: "modify" },
+              { id: "q-amount", label: "Указать сумму", action: "modify" },
+            ],
+          };
+          addMessage(msg);
+        } else {
+          const msg: ChatMessage = {
+            id: (Date.now() + 1).toString(), role: "assistant",
+            text: "Опишите подробнее вашу ситуацию. Например: «хочу сдать квартиру» или «продаю машину».",
+          };
+          addMessage(msg);
+        }
+      } else if (step === "questions") {
+        setAnswers((prev) => ({ ...prev, [Date.now()]: text }));
+        const msg: ChatMessage = {
+          id: (Date.now() + 1).toString(), role: "assistant",
+          text: "Спасибо! Давайте уточним ещё несколько деталей.\n\n**Срок договора?**\nНа какой период заключаете договор?",
+          options: [
+            { id: "q-1year", label: "1 год", action: "confirm" },
+            { id: "q-6month", label: "6 месяцев", action: "confirm" },
+            { id: "q-other", label: "Другой срок", action: "modify" },
+          ],
+        };
+        addMessage(msg);
+      }
       setIsProcessing(false);
-    }, 1500);
-  }, [isProcessing, addMessage]);
+    }, 1000);
+  }, [isProcessing, addMessage, step]);
 
   const handleSend = useCallback(() => { sendMessage(inputValue, pendingImage ?? undefined); }, [inputValue, pendingImage, sendMessage]);
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }, [handleSend]);
@@ -143,34 +197,42 @@ export default function ChatPage() {
     if (!msg?.options) return;
     const action = msg.options.find((o) => o.id === actionId);
     if (!action) return;
+
     if (action.action === "view" || action.action === "sign") {
       const existing = localStorage.getItem("contract_drafts");
       const drafts: ContractDraft[] = existing ? JSON.parse(existing) : [];
       if (drafts.length > 0) window.location.href = `/my-documents/${drafts[drafts.length - 1].id}`;
       return;
     }
-    if (action.action === "confirm") {
-      const newDraft: ContractDraft = {
-        id: Date.now().toString(), contractId: "rent", contractTitle: "Договор аренды",
-        fields: { rentAmount: action.label }, status: "draft", createdAt: new Date().toISOString(),
-      };
-      const existing = localStorage.getItem("contract_drafts");
-      const drafts: ContractDraft[] = existing ? JSON.parse(existing) : [];
-      drafts.push(newDraft);
-      localStorage.setItem("contract_drafts", JSON.stringify(drafts));
-      setDraft(newDraft);
-      const doneMsg: ChatMessage = {
-        id: (Date.now() + 2).toString(), role: "assistant",
-        text: "✅ **Договор аренды** сформирован!\n\nВы можете посмотреть полный текст, отредактировать или подписать.",
-        options: [
-          { id: "view-doc", label: "Посмотреть договор", action: "view" },
-          { id: "sign-doc", label: "Подписать", action: "sign" },
-          { id: "new-doc", label: "Создать новый", action: "restart" },
-        ],
-      };
-      addMessage(doneMsg);
+
+    if (action.action === "confirm" || action.action === "modify") {
+      if (step === "questions" && selectedContract) {
+        setStep("done");
+        const newDraft: ContractDraft = {
+          id: Date.now().toString(), contractId: selectedContract.id,
+          contractTitle: selectedContract.name,
+          fields: { ...answers, action: action.label },
+          status: "draft", createdAt: new Date().toISOString(),
+        };
+        const existing = localStorage.getItem("contract_drafts");
+        const drafts: ContractDraft[] = existing ? JSON.parse(existing) : [];
+        drafts.push(newDraft);
+        localStorage.setItem("contract_drafts", JSON.stringify(drafts));
+        setDraft(newDraft);
+
+        const doneMsg: ChatMessage = {
+          id: (Date.now() + 2).toString(), role: "assistant",
+          text: `✅ **${selectedContract.name}** сформирован!\n\nВы можете посмотреть полный текст, отредактировать или подписать.`,
+          options: [
+            { id: "view-doc", label: "Посмотреть договор", action: "view" },
+            { id: "sign-doc", label: "Подписать", action: "sign" },
+            { id: "new-doc", label: "Создать новый", action: "restart" },
+          ],
+        };
+        addMessage(doneMsg);
+      }
     }
-  }, [messages, addMessage]);
+  }, [messages, addMessage, step, selectedContract, answers]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
